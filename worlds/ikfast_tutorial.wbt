@@ -1,0 +1,21 @@
+#VRML_SIM R2021b utf8
+WorldInfo {
+  coordinateSystem "NUE"
+}
+Viewpoint {
+  orientation -0.5877962386371164 0.788166180995405 0.18245452304389934 0.7154194823833482
+  position 2.5854994222721572 2.1656822580100923 3.1425331268469683
+}
+TexturedBackground {
+}
+TexturedBackgroundLight {
+}
+RectangleArena {
+  floorSize 6 6
+}
+Irb4600-40 {
+  rotation -1 0 0 1.5708
+  controller "inverse_kinematics_pyikfast"
+  supervisor TRUE
+  staticBase TRUE
+}
