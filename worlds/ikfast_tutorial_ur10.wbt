@@ -1,0 +1,59 @@
+#VRML_SIM R2022a utf8
+WorldInfo {
+  coordinateSystem "NUE"
+}
+Viewpoint {
+  orientation -0.7071057814660382 0.7071077809056435 5.551115123136879e-17 3.1415966524690035
+  position 0.5715500000000023 3.5764013253371316 0.6735499999999988
+}
+TexturedBackground {
+}
+TexturedBackgroundLight {
+}
+UR10e {
+  rotation 0.5382171008777715 -0.8111761520383549 0.2287260428700119 -5.307179586466759e-06
+  controller "inverse_kinematics_pyikfast"
+  supervisor TRUE
+}
+Floor {
+  translation 0 -1 0
+  rotation 1 0 0 -1.57079632679
+}
+DEF TARGET Solid {
+  translation 0.57155 0.2907 0.67355
+  rotation 0.7071067811865477 0.7071067811865477 0 -3.141592653589793
+  scale 0.4 0.4 0.4
+  children [
+    Shape {
+      appearance PBRAppearance {
+        baseColorMap ImageTexture {
+          url [
+            "textures/target.png"
+          ]
+        }
+        roughnessMap ImageTexture {
+          url [
+            "textures/target.png"
+          ]
+        }
+        metalnessMap ImageTexture {
+          url [
+            "textures/target.png"
+          ]
+        }
+        emissiveColorMap ImageTexture {
+          url [
+            "textures/target.png"
+          ]
+        }
+        textureTransform TextureTransform {
+          scale 2 1
+        }
+      }
+      geometry Sphere {
+        radius 0.1
+        subdivision 2
+      }
+    }
+  ]
+}

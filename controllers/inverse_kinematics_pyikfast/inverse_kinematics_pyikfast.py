@@ -21,7 +21,7 @@ from get_relative_position import RelativePositions
 from pyikfast_module import inverseKinematics
 from spawn_target import spawnTarget
 
-
+from transforms3d.axangles import mat2axangle
 
 # ------------------- CONFIGURATION -------------------------
 
@@ -29,11 +29,18 @@ from spawn_target import spawnTarget
 # For velocity control, a smaller value makes the movement smoother.
 IKstepSize = 2
 
+supervisor = Supervisor()
+
 # This name is needed in the pyikfast_module.py to determine the joint2_offset (line 25)
-protoName = 'Irb4600-40'
+protoName = supervisor.getSelf().getTypeName()  #'UR10e' #'Irb4600-40'
 
 # import the pyikfast solver module for your robot as "pyikfast_module"
-import pyikfast_irb4600_40 as pyikfast_module
+# import pyikfast_irb4600_40 as pyikfast_module
+if protoName == "UR10e":
+    import pyikfast_ur10e as pyikfast_module
+else:
+    import pyikfast_irb4600_40 as pyikfast_module
+print("pyikfast_module", pyikfast_module)
 
 # Offset from toolSlot base, for which the IK solution is calculated.
 # This can be useful, when attaching grippers on the robot.
@@ -44,19 +51,12 @@ offset = [0, 0, 0]
 # -------------------- INITIALIZATION -----------------------
 
 # Initialize the Webots Supervisor.
-supervisor = Supervisor()
+print("getTypeName", supervisor.getSelf().getTypeName())
 if not supervisor.getSupervisor():
-    sys.exit('WARNING: Your robot is not a supervisor! Set the supervisor field to True and restart the controller.')
+    sys.exit(
+        "WARNING: Your robot is not a supervisor! Set the supervisor field to True and restart the controller."
+    )
 timeStep = int(supervisor.getBasicTimeStep())
-
-
-# check if our world already has the TARGET node. If not, we spawn it.
-target = supervisor.getFromDef('TARGET')
-try:
-    target.getPosition()
-except Exception as e:
-    print('No TARGET defined. Spawning TARGET sphere')
-    spawnTarget(supervisor)
 
 # --------------------------------------------------------------------
 # Initialize the arm motors and sensors. This is a generic code block
@@ -68,9 +68,9 @@ minPositions = []
 maxPositions = []
 for i in range(n):
     device = supervisor.getDeviceByIndex(i)
-    print(device.getName(), '   - NodeType:', device.getNodeType())
+    print(device.getName(), "   - NodeType:", device.getNodeType())
     # if device is a rotational motor (uncomment line above to get a list of all robot devices)
-    if device.getNodeType() == Node.__dict__['ROTATIONAL_MOTOR']:
+    if device.getNodeType() == Node.__dict__["ROTATIONAL_MOTOR"]:
         motors.append(device)
         minPositions.append(device.getMinPosition())
         maxPositions.append(device.getMaxPosition())
@@ -80,27 +80,74 @@ for i in range(n):
             sensors.append(sensor)
             sensor.enable(timeStep)
         except Exception as e:
-            print('Rotational Motor: ' + device.getName() +
-                  ' has no Position Sensor')
-# --------------------------------------------------------------------
+            print("Rotational Motor: " + device.getName() + " has no Position Sensor")
+print("minPositions", minPositions)
+print("maxPositions", maxPositions)
 
+# --------------------------------------------------------------------
+# move the arm onto target using known solution
+target_position_joint_state = np.array([0, -np.pi / 2, np.pi / 2, 0, 0, 0]).astype(
+    np.double
+)
+def move_to_joint_state(motors, joint_state):
+    """Move robot endpoint to a known position that aligns it perfectly with the target"""
+    for i in range(len(joint_state)):
+        motors[i].setPosition(joint_state[i])
+# plase end-effector on target
+move_to_joint_state(motors, target_position_joint_state)
+
+# --------------------------------------------------------------------
+# show that the endpoint pose is indeed the targtet pose
 # Initialize our inverse kinematics module
 ik = inverseKinematics(pyikfast_module, protoName, minPositions, maxPositions)
+print("ik", ik)
+
+fk_pos, fk_rot = ik.get_fk(target_position_joint_state)
+print("fk_pos", fk_pos)
+print("fk_rot", fk_rot)
+
+# check that the target position and rotation matches te end-effector's
+target = supervisor.getFromDef("TARGET")
+# target position relative to world.
+target_pos_world = np.array(target.getPosition())
+# target rotation relative to world
+target_rot_world = np.array(target.getOrientation()).reshape(3, 3)
+assert np.allclose(fk_pos, target_pos_world)
+assert np.allclose(fk_rot, target_rot_world)
+print("Yay, target pose and end-effector pose match")
+
+# --------------------------------------------------------------------
+# Try is get an IK solution for the current end-point pose.
+# there should be at least one solution, target_position_joint_state
+ikResults = ik.get_ik(fk_pos, fk_rot)
+
+assert len(ikResults) > 0
+
+#############################################################################################
+# We don't get any further
+print("Yay, We found in IK solution to our current end effector pose")
+
 
 # Initialize the RelativePositions module. 'TARGET' is the DEF of the spawned sphere.
 # You can change this DEF to any other object. You can also initialilze several like this:
 # RelPos_1 = RelativePositions(supervisor, 'TARGET1')
 # RelPos_2 = RelativePositions(supervisor, 'TARGET2')
-RelPos = RelativePositions(supervisor, 'TARGET')
-
+RelPos = RelativePositions(supervisor, "TARGET")
+print("RelPos.get_pos()", RelPos.get_pos())
 # ---------------------- Main Loop Velocity Control-------------------------
-print('-------------------------------------------------------')
-print('Using Velocity Control to move the end-effector in a circle for 10s.')
+print("-------------------------------------------------------")
+print("Using Velocity Control to move the end-effector in a circle for 10s.")
+
 # Calculating an initial position and orientation defines the starting position of the
 # velocity control inverse kinematic calculations.
-init_pos = np.array([1, 0, 0.5])
-init_rot = np.array([[1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, -1.0]])
-ikResults = ik.get_ik(init_pos, init_rot)
+
+robot_base = supervisor.getSelf()
+robot_rot_base = np.transpose(np.array(robot_base.getOrientation()).reshape(3, 3))
+robot_pos_base = np.array(robot_base.getPosition())
+print("robot_pos_base", robot_pos_base)
+print("robot_rot_base", robot_rot_base)
+
+print("ikResults", ikResults)
 t0 = supervisor.getTime()
 while supervisor.step(timeStep * IKstepSize) != -1:
     # Defining x y and z velocities with sinus and cosinus in order to draw a circle
@@ -127,8 +174,8 @@ while supervisor.step(timeStep * IKstepSize) != -1:
 
 # ---------------------- Main Loop -------------------------
 
-print('-------------------------------------------------------')
-print('Move or rotate the TARGET sphere to move the arm...')
+print("-------------------------------------------------------")
+print("Move or rotate the TARGET sphere to move the arm...")
 while supervisor.step(IKstepSize * timeStep) != -1:
     # Get the target position relative to the robot base
     target_pos, target_rot = RelPos.get_pos_static()
