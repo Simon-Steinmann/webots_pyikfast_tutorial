@@ -36,11 +36,7 @@ protoName = supervisor.getSelf().getTypeName()  #'UR10e' #'Irb4600-40'
 
 # import the pyikfast solver module for your robot as "pyikfast_module"
 # import pyikfast_irb4600_40 as pyikfast_module
-if protoName == "UR10e":
-    import pyikfast_ur10e as pyikfast_module
-else:
-    import pyikfast_irb4600_40 as pyikfast_module
-print("pyikfast_module", pyikfast_module)
+import pyikfast_ur10e as pyikfast_module
 
 # Offset from toolSlot base, for which the IK solution is calculated.
 # This can be useful, when attaching grippers on the robot.
@@ -93,7 +89,7 @@ def move_to_joint_state(motors, joint_state):
     """Move robot endpoint to a known position that aligns it perfectly with the target"""
     for i in range(len(joint_state)):
         motors[i].setPosition(joint_state[i])
-# plase end-effector on target
+# place end-effector on target
 move_to_joint_state(motors, target_position_joint_state)
 
 # --------------------------------------------------------------------
